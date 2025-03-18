@@ -3,7 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 session_start();
-include 'db.php';
+include './config/db.php';
 
 $login_error = ""; // Variable to store error messages
 
@@ -36,13 +36,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
                 setcookie("user_email", $email, time() + (30 * 24 * 60 * 60), "/");
             }
 
-            header("Location: dasnboard.php");
+            header("Location: dashboard.php");
             exit();
         } else {
-            $login_error = "<p style='color:red;'>Invalid credentials.</p>";
+            $login_error = "<p class='error'>Invalid credentials.</p>";
         }
     } else {
-        $login_error = "<p style='color:red;'>Invalid credentials.</p>";
+        $login_error = "<p class='error'>Invalid credentials.</p>";
     }
 
     $stmt->close();
@@ -50,15 +50,78 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
 }
 ?>
 
-<html>
-    <body>
-           <form action="login.php" method="POST">
-            <input type="text" name="email" placeholder="Email" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <label><input type="checkbox" name="remember"> Remember Me</label>
-            <button type="submit" name="login">Login</button>
-        </form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Link to external CSS file -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .error {
+            color: red;
+            text-align: center;
+        }
+        label {
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
 
-        <?= $login_error ?> <!-- Display login error message -->
-    </body>
-</html> 
+<div class="login-container">
+    <h2>Login</h2>
+    <form action="login.php" method="POST">
+        <input type="text" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <label>
+            <input type="checkbox" name="remember"> Remember Me
+        </label>
+        <button type="submit" name="login">Login</button>
+    </form>
+    <?= $login_error ?> <!-- Display login error message -->
+</div>
+
+</body>
+</html>
