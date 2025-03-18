@@ -1,127 +1,98 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+include_once 'includes/header.php';
+redirectIfLoggedIn();
 
-session_start();
-include './config/db.php';
-
-$login_error = ""; // Variable to store error messages
-
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['login'])) {
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
-
-    $stmt = $conn->prepare("SELECT id, username, password, profile_picture FROM users WHERE email = ?");
+// Handle form submission
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Get form data
+    $email = sanitizeInput($_POST['email']);
+    $password = $_POST['password'];
+    $rememberMe = isset($_POST['remember_me']);
     
-    if (!$stmt) {
-        die("Database error: " . $conn->error);
+    // Validate form data
+    $errors = [];
+    
+    if (empty($email)) {
+        $errors[] = "Email is required";
     }
-
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $stmt->store_result();
-
-    if ($stmt->num_rows > 0) {
-        $stmt->bind_result($id, $username, $hashed_password, $profile_picture);
-        $stmt->fetch();
-
-        // Ensure password is not empty before verifying
-        if (!empty($hashed_password) && password_verify($password, $hashed_password)) {
-            $_SESSION['user_id'] = $id;
-            $_SESSION['username'] = $username;
-            $_SESSION['profile_picture'] = $profile_picture;
-
-            // Remember Me - Set a cookie for 30 days
-            if (!empty($_POST['remember'])) {
-                setcookie("user_email", $email, time() + (30 * 24 * 60 * 60), "/");
+    
+    if (empty($password)) {
+        $errors[] = "Password is required";
+    }
+    
+    // If no errors, check login
+    if (empty($errors)) {
+        // Get user from database
+        $stmt = $conn->prepare("SELECT id, username, password FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 1) {
+            $user = $result->fetch_assoc();
+            
+            // Verify password
+            if (password_verify($password, $user['password'])) {
+                // Set session variables
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                
+                // Set remember me cookie if checked
+                if ($rememberMe) {
+                    setRememberMeCookie($user['id'], $conn);
+                }
+                
+                $_SESSION['message'] = "Login successful. Welcome back, " . $user['username'] . "!";
+                $_SESSION['message_type'] = "success";
+                header("Location: index.php");
+                exit();
+            } else {
+                $errors[] = "Invalid password";
             }
-
-            header("Location: dashboard.php");
-            exit();
         } else {
-            $login_error = "<p class='error'>Invalid credentials.</p>";
+            $errors[] = "Email not found";
         }
-    } else {
-        $login_error = "<p class='error'>Invalid credentials.</p>";
     }
-
-    $stmt->close();
-    $conn->close();
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <link rel="stylesheet" href="styles.css"> <!-- Link to external CSS file -->
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f2f5;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .login-container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 300px;
-        }
-        h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .error {
-            color: red;
-            text-align: center;
-        }
-        label {
-            display: flex;
-            align-items: center;
-        }
-    </style>
-</head>
-<body>
-
-<div class="login-container">
-    <h2>Login</h2>
-    <form action="login.php" method="POST">
-        <input type="text" name="email" placeholder="Email" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <label>
-            <input type="checkbox" name="remember"> Remember Me
-        </label>
-        <button type="submit" name="login">Login</button>
+<h2>Login</h2>
+<div class="form-container">
+    <?php if (!empty($errors)): ?>
+        <div class="alert error">
+            <ul>
+                <?php foreach ($errors as $error): ?>
+                    <li><?php echo $error; ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
+    
+    <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" name="email" id="email" class="form-control" value="<?php echo isset($email) ? $email : ''; ?>">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" class="form-control">
+        </div>
+        
+        <div class="remember-me">
+            <input type="checkbox" name="remember_me" id="remember_me">
+            <label for="remember_me">Remember me</label>
+        </div>
+        
+        <div class="form-group">
+            <input type="submit" value="Login" class="btn btn-block">
+        </div>
+        
+        <div class="form-group">
+            <p><a href="forgot-password.php">Forgot Password?</a></p>
+            <p>Don't have an account? <a href="register.php">Register here</a></p>
+        </div>
     </form>
-    <?= $login_error ?> <!-- Display login error message -->
 </div>
 
-</body>
-</html>
+<?php include_once 'includes/footer.php'; ?>
